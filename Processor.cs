@@ -67,34 +67,49 @@ namespace ImageResizer
         /// Process the queue.
         /// </summary>
         /// <returns></returns>
-        protected Unit WorkOnQueue(bool shouldWork) => shouldWork
+        private Unit WorkOnQueue(bool shouldWork) => shouldWork
             .IfTrue(() =>
             {
                 _ = Task.Run(() =>
                 {
+                    TaskCount = processingQueue.Count;
                     while (processingQueue.Count > 0)
                     {
                         TaskItem item = processingQueue.Dequeue();
                         string original = Path.Combine(Options.DestinationDirectory, Path.GetFileName(item.Value));
                         File.Move(item.Value, original);
 
-                        var img = Resizer.Resize(new TaskItem(original), Options.Width, Options.Height);
+                        var img = Resizer.Resize(
+                            new TaskItem(original), 
+                            Options.Width, 
+                            Options.Height, 
+                            Options.KeepAspectRatio);
+                        
                         if (img != null)
                         {
                             using var writeStream = File.OpenWrite(Path.Combine(Options.MovedDirectory, Path.GetFileName(item.Value)));
                             img.Save(writeStream, new JpegEncoder { ColorType = JpegColorType.Rgb, Quality = 85 });
+                            CurrentCount = processingQueue.Count;
                         }
                     }
                     _ = this.shouldWork.Swap((_) => false);
                 });
-            })
-            .IfFalse(() => Console.WriteLine("Workload ended!"))
-            .AsUnit();
+            }).AsUnit();
 
         /// <summary>
         /// Working state.
         /// </summary>
         public bool Working => shouldWork.Value;
+
+        /// <summary>
+        /// Get total workload.
+        /// </summary>
+        public int TaskCount { get; private set; }
+
+        /// <summary>
+        /// Get current workload.
+        /// </summary>
+        public int CurrentCount { get; private set; }
 
         /// <summary> 
         /// Options set during start up.

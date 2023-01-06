@@ -33,5 +33,10 @@
         /// </summary>
         public int Height { get; init; }
 
+        /// <summary>
+        /// Wether to keep aspect ratio (biggest dimension).
+        /// </summary>
+        public bool KeepAspectRatio { get; init; }
+
     }
 }
