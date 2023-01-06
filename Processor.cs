@@ -1,7 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-
-[assembly: InternalsVisibleTo("ImageResizerTests")]
-namespace ImageResizer
+﻿namespace ImageResizer
 {
     using System;
     using System.Collections.Generic;
