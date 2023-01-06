@@ -1,4 +1,4 @@
-﻿namespace imageResizer
+﻿namespace ImageResizer
 {
     using LanguageExt;
 
