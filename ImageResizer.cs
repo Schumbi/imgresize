@@ -1,4 +1,7 @@
-﻿namespace ImageResizer
+﻿using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("ImageResizerTests")]
+namespace ImageResizer
 {
     using System;
     using System.Collections.Generic;
@@ -11,6 +14,7 @@
     using static LanguageExt.Prelude;
 
     using Extensions;
+    using imageResizer.Components;
 
     public class ImageResizer
     {
@@ -23,22 +27,42 @@
         /// <summary>
         /// State of processing.
         /// </summary>
-        private readonly Atom<Unit> shouldWork = Atom(Unit.Default);
+        private readonly Atom<bool> shouldWork = Atom(false);
+
+        /// <summary>
+        /// Maximum tasks to use.
+        /// </summary>
+        private int maxTasks = 5;
 
         public ImageResizer()
         {
-            shouldWork.Change += (_) => workOnQueue();
+            shouldWork.Change += (shouldWork) => WorkOnQueue(shouldWork);
         }
 
         /// <summary>
         /// Process the queue.
         /// </summary>
         /// <returns></returns>
-        private Unit workOnQueue()
-        {
+        protected Unit WorkOnQueue(bool shouldWork) => shouldWork
+            .IfTrue(async () =>
+            {
+                if(processingQueue.Count > 0)
+                {
+                    TaskItem item = processingQueue.Dequeue();
+                    var img = await Resizer.Resize(item, 1024, 768);
+                }
+                else
+                {
+                    _ = this.shouldWork.Swap((_) => false);
+                }
+            })
+            .IfFalse(() =>
+            {
+                Console.WriteLine("Noting to do.");
+            }).AsUnit();
 
-            return Unit.Default;
-        }
+
+        public bool Working => shouldWork.Value;
 
         /// <summary>
         /// Add an item to the processing state.
@@ -50,7 +74,7 @@
             func: (i) =>
             {
                 processingQueue.Enqueue(i);
-                return shouldWork.Swap((_) => Unit.Default);
+                return shouldWork.Swap((_) => true);
             }).AsUnit();
     }
 }
