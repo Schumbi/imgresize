@@ -23,11 +23,12 @@
                 Thread.Sleep(1000);
                 if(worker.Working)
                 {
-                    Console.Clear();
-                    Console.WriteLine($"{worker.CurrentCount}/{worker.TaskCount}");
+                    do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
+                    Console.Write($"{worker.CurrentCount}/{worker.TaskCount}");
                 } else
                 {
-                    Console.Write("?");
+                    do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
+                    Console.Write("Waiting...");
                 }
             }
         }
