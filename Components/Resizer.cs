@@ -1,8 +1,6 @@
-﻿namespace imageResizer.Components
+﻿namespace ImageResizer.Components
 {
     using System.Threading.Tasks;
-
-    using ImageResizer;
 
     using SixLabors.ImageSharp;
     using SixLabors.ImageSharp.Formats;
