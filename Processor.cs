@@ -34,74 +34,69 @@ namespace ImageResizer
         /// </summary>
         private int maxTasks = 5;
 
-        /// <summary>
-        /// Watch directory for created events.
-        /// </summary>
-        private readonly FileSystemWatcher watcher = new();
-
         public Processor(Options options)
         {
             Options = options;
             shouldWork.Change += (shouldWork) => WorkOnQueue(shouldWork);
+            // initial check
+            CheckForFiles();
 
-            // search for existing files
-            foreach (var item in new DirectoryInfo(Options.SourceDirectory).GetFiles()
-                .Where(f => f.Extension.Contains("jpg", StringComparison.InvariantCultureIgnoreCase)))
+            // ongoing check
+            _ = Task.Run(() =>
             {
-                _ = AddTask(new TaskItem(item.FullName));
+                while (true)
+                {
+                    _ = shouldWork.Value.IfFalse(() => CheckForFiles());
+                    Thread.Sleep(1000);
+                }
+            });
+
+            void CheckForFiles()
+            {
+                var tasks = new DirectoryInfo(Options.SourceDirectory).GetFiles()
+                    .Where(f => f.Extension.Contains("jpg", StringComparison.InvariantCultureIgnoreCase));
+                foreach (var item in tasks)
+                {
+                    _ = AddTask(new TaskItem(item.FullName));
+                }
+                _ = shouldWork.Swap((_) => tasks.Any());
             }
-
-            // start watcher
-            watcher = new FileSystemWatcher(Path.GetFullPath(Options.SourceDirectory))
-            {
-                Filters = { "*.jpg", "*.JPG" },
-                IncludeSubdirectories = true,
-                EnableRaisingEvents = true,
-            };
-            watcher.Changed += (obj, e) => {
-                if (e is not null && Path.Exists(e.FullPath) && File.Exists(e.FullPath)) {
-                    _ = AddTask(new TaskItem(e.FullPath));
-                }};
         }
-
-        /// <summary>
-        /// Destructor. Dispose FilesystemWatcher.
-        /// </summary>
-        ~Processor() => watcher.Dispose();
 
         /// <summary>
         /// Process the queue.
         /// </summary>
         /// <returns></returns>
         protected Unit WorkOnQueue(bool shouldWork) => shouldWork
-            .IfTrue(async () =>
+            .IfTrue(() =>
             {
-                await Task.Run(async () =>
+                _ = Task.Run(() =>
                 {
                     while (processingQueue.Count > 0)
                     {
                         TaskItem item = processingQueue.Dequeue();
-                        var img = await Resizer.Resize(item, Options.Width, Options.Height);
+                        string original = Path.Combine(Options.DestinationDirectory, Path.GetFileName(item.Value));
+                        File.Move(item.Value, original);
+
+                        var img = Resizer.Resize(new TaskItem(original), Options.Width, Options.Height);
                         if (img != null)
                         {
-                            var fileName = Path.GetFileName(item.Value);
-                            using var writeStream = File.OpenWrite(Path.Combine(Options.MovedDirectory, fileName));
+                            using var writeStream = File.OpenWrite(Path.Combine(Options.MovedDirectory, Path.GetFileName(item.Value)));
                             img.Save(writeStream, new JpegEncoder { ColorType = JpegColorType.Rgb, Quality = 85 });
                         }
                     }
+                    _ = this.shouldWork.Swap((_) => false);
                 });
             })
-            .IfFalse(() =>
-            {
-                Console.WriteLine("Nothing to do.");
-            }).AsUnit();
+            .IfFalse(() => Console.WriteLine("Workload ended!"))
+            .AsUnit();
 
         /// <summary>
         /// Working state.
         /// </summary>
         public bool Working => shouldWork.Value;
 
-        /// <summary>
+        /// <summary> 
         /// Options set during start up.
         /// </summary>
         public Options Options { get; }
@@ -111,17 +106,14 @@ namespace ImageResizer
         /// </summary>
         /// <param name="item">Work item to add.</param>
         /// <returns>Unit</returns>
-        public Unit AddTask(TaskItem item) => item.DoIf(
+        public Unit AddTask(TaskItem item) => item
+            .DoIf<TaskItem,bool>(
             pred: (i) => !string.IsNullOrWhiteSpace(i.Value) && Path.Exists(i.Value),
             func: (i) =>
             {
                 processingQueue.Enqueue(i);
-                if(shouldWork.Value == false)
-                {
-                    // start working
-                    return shouldWork.Swap((_) => true);
-                }
                 return true;
-            }).AsUnit();
+            })
+            .AsUnit();
     }
 }

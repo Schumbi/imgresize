@@ -10,13 +10,12 @@
     internal class Resizer
     {
         //int newHeight = (int)(image.Height * ((float)newWidth / image.Width));
-        public static Task<Image<Rgba32>> Resize(TaskItem taskItem, int newWidth, int newHeight) =>
-            Task.Run(() =>
-                {
-                    using var stream = File.OpenRead(taskItem.Value);
-                    var image = Image.Load<Rgba32>(stream, out IImageFormat format);
-                    image.Mutate(x => x.Resize(newWidth, newHeight));
-                    return image;
-                });
+        public static Image<Rgba32> Resize(TaskItem taskItem, int newWidth, int newHeight)
+        {
+            using var stream = File.OpenRead(taskItem.Value);
+            var image = Image.Load<Rgba32>(stream, out IImageFormat format);
+            image.Mutate(x => x.Resize(newWidth, newHeight));
+            return image;
+        }
     }
 }
