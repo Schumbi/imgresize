@@ -2,7 +2,7 @@
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var opts = new Options()
             {
@@ -14,23 +14,25 @@
                 KeepAspectRatio = true,
             };
 
-            Processor worker = new(opts);
+            Processor processor = new(opts);
+            var processorTask = processor.ProcessAsync();
 
-            bool exit = false;
-
-            while(!exit)
+            while (!processorTask.IsCompleted)
             {
                 Thread.Sleep(1000);
-                if(worker.Working)
+                if (processor.Working)
                 {
                     do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
-                    Console.Write($"{worker.CurrentCount}/{worker.TaskCount}");
-                } else
+                    Console.Write($"{processor.CurrentCount}/{processor.TaskCount}");
+                }
+                else
                 {
                     do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
                     Console.Write("Waiting...");
                 }
             }
+
+            await processorTask;
         }
     }
 }
