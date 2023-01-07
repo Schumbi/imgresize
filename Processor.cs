@@ -32,13 +32,12 @@
             {
                 var tasks = CheckForImageFiles(Options.SourceDirectory);
 
-                CurrentCount = TaskCount = tasks.Count();
-                Working = true;
+                WorkingState = new WorkingStateInfo(tasks.Count(), tasks.Count());
 
                 var jobs = tasks.Select(item => ProcessAsync(item)).ToList();
 
                 await Task.WhenAll(jobs);
-                Working = false;
+                WorkingState = None;
 
                 Thread.Sleep(1000);
             }
@@ -74,28 +73,26 @@
             {
                 using var writeStream = File.OpenWrite(Path.Combine(Options.MovedDirectory, Path.GetFileName(item.Value)));
                 await img.SaveAsync(writeStream, new JpegEncoder { ColorType = JpegColorType.Rgb, Quality = 85 });
-                CurrentCount--;
+                WorkingState = WorkingState.Map(ws => ws with { CurrentCount = ws.CurrentCount - 1 });
             }
         }
 
         /// <summary>
-        /// Working state.
+        /// Gets optional working state information.
+        /// Absence indicates that there is currently nothing to do.
         /// </summary>
-        public bool Working { get; private set; }
-
-        /// <summary>
-        /// Get total workload.
-        /// </summary>
-        public int TaskCount { get; private set; }
-
-        /// <summary>
-        /// Get current workload.
-        /// </summary>
-        public int CurrentCount { get; private set; }
+        public Option<WorkingStateInfo> WorkingState { get; private set; }
 
         /// <summary> 
         /// Options set during start up.
         /// </summary>
         public Options Options { get; }
+
+        /// <summary>
+        /// Working state information.
+        /// </summary>
+        /// <param name="TaskCount">Get total workload.</param>
+        /// <param name="CurrentCount">Get current workload.</param>
+        public record WorkingStateInfo(int TaskCount, int CurrentCount);
     }
 }

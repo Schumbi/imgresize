@@ -20,16 +20,13 @@
             while (!processorTask.IsCompleted)
             {
                 Thread.Sleep(1000);
-                if (processor.Working)
-                {
-                    do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
-                    Console.Write($"{processor.CurrentCount}/{processor.TaskCount}");
-                }
-                else
-                {
-                    do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
-                    Console.Write("Waiting...");
-                }
+
+                var msg = processor.WorkingState.Match(
+                    Some: state => $"{state.CurrentCount}/{state.TaskCount}",
+                    None: () => "Waiting...");
+
+                do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
+                Console.Write(msg);
             }
 
             await processorTask;
