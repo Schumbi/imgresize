@@ -3,8 +3,8 @@
     using System;
     using System.Collections.Generic;
     using System.Linq;
-    using System.Reactive.Threading.Tasks;
     using System.Reactive.Linq;
+    using System.Reactive.Threading.Tasks;
     using System.Threading.Tasks;
 
     using LanguageExt;
@@ -24,43 +24,53 @@
         public static IObservable<Option<WorkingStateInfo>> RunAsync(
             Options options,
             CancellationToken cancellationToken = default)
+            => ProcessDirectory(options, cancellationToken)
+                .Select(Some)
+                .Append(None)
+                .Concat(Wait<Option<WorkingStateInfo>>(
+                    options.CheckDelay.ToTimeSpan(),
+                    cancellationToken))
+                .Repeat()
+                .OnErrorResumeNext(Observable.Empty<Option<WorkingStateInfo>>())
+                .Replay(1)
+                .AutoConnect(0);
+
+        /// <summary>
+        /// Creates an observable sequence that emits no elements and
+        /// completes after the given duration.
+        /// If cancellation is requested the sequence immediately
+        /// emits an error.
+        /// </summary>
+        private static IObservable<T> Wait<T>(
+            TimeSpan duration,
+            CancellationToken cancellationToken)
+            => Observable
+                .Never<T>()
+                .ToTask(cancellationToken)
+                .ToObservable()
+                .TakeUntil(Observable.Timer(duration));
+
+        /// <summary>
+        /// Process all files in the source directory concurrently.
+        /// </summary>
+        /// <returns>Sequence of processed files/state info.</returns>
+        private static IObservable<WorkingStateInfo> ProcessDirectory(
+            Options options,
+            CancellationToken cancellationToken)
         {
-            var workingState = Atom<Option<WorkingStateInfo>>(None);
+            var taskItems = CheckForImageFiles(options.SourceDirectory);
+            int taskItemsCount = taskItems.Count();
 
-            var workingStateObservable = Observable
-                .FromEvent<AtomChangedEvent<Option<WorkingStateInfo>>, Option<WorkingStateInfo>>(
-                    h => workingState.Change += h,
-                    h => workingState.Change -= h)
-                .StartWith(workingState.Value);
-
-            var watchObservable = Task.Run(async () =>
-            {
-                var concurrencyLimit = new SemaphoreSlim(options.MaxConcurrent, options.MaxConcurrent);
-
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    var tasks = CheckForImageFiles(options.SourceDirectory);
-                    int taskCount = tasks.Count();
-
-                    if (taskCount > 0)
-                    {
-                        workingState.Swap(_ => new WorkingStateInfo(taskCount, taskCount));
-
-                        var jobs = tasks
-                            .Select(item => ProcessAsync(item, options, concurrencyLimit)
-                                .ContinueWith(t => workingState
-                                    .Swap(s => s.Map(ws => ws with { CurrentCount = ws.CurrentCount - 1 }))))
-                            .ToList();
-
-                        await Task.WhenAll(jobs);
-                        workingState.Swap(_ => None);
-                    }
-
-                    await Task.Delay(options.CheckDelay.ToTimeSpan());
-                }
-            }).ToObservable();
-
-            return workingStateObservable.TakeUntil(watchObservable);
+            return taskItems
+                .Select(item => Observable.Defer(() =>
+                    cancellationToken.IsCancellationRequested ?
+                        Observable.Empty<TaskItem>() :
+                        Observable.FromAsync(() => ProcessAsync(item, options))))
+                .Merge(options.MaxConcurrent)
+                .Scan(
+                    new WorkingStateInfo(taskItemsCount, taskItemsCount),
+                    (ws, _) => ws with { CurrentCount = ws.CurrentCount - 1 })
+                .StartWith(new WorkingStateInfo(taskItemsCount, taskItemsCount));
         }
 
         /// <summary>
@@ -78,7 +88,7 @@
         /// Process a single task item.
         /// </summary>
         /// <returns>Task.</returns>
-        private static async Task ProcessAsync(TaskItem item, Options options, SemaphoreSlim concurrencyLimit)
+        private static async Task<TaskItem> ProcessAsync(TaskItem item, Options options)
         {
             string original = Path.Combine(options.DestinationDirectory, Path.GetFileName(item.Value));
             File.Move(item.Value, original);
@@ -87,14 +97,15 @@
                 new TaskItem(original),
                 options.Width,
                 options.Height,
-                options.KeepAspectRatio,
-                concurrencyLimit);
+                options.KeepAspectRatio);
 
             if (img != null)
             {
                 using var writeStream = File.OpenWrite(Path.Combine(options.MovedDirectory, Path.GetFileName(item.Value)));
                 await img.SaveAsync(writeStream, new JpegEncoder { ColorType = JpegColorType.Rgb, Quality = 85 });
             }
+
+            return item;
         }
 
         /// <summary>

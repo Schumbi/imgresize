@@ -13,7 +13,7 @@
     internal class Resizer
     {
         //int newHeight = (int)(image.Height * ((float)newWidth / image.Width));
-        public static async Task<Image> ResizeAsync(TaskItem taskItem, int newWidth, int newHeight, bool keepRation, SemaphoreSlim concurrencyLimit)
+        public static async Task<Image> ResizeAsync(TaskItem taskItem, int newWidth, int newHeight, bool keepRation)
         {
             var image = await Image.LoadAsync(taskItem.Value);
 
@@ -32,11 +32,7 @@
                 }
             }
 
-            await Concurrent.Run(() =>
-            {
-                image.Mutate(x => x.Resize(newWidth, newHeight));
-                return unit;
-            }, concurrencyLimit);
+            image.Mutate(x => x.Resize(newWidth, newHeight));
 
             return image;
         }
