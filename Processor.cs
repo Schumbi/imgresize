@@ -3,6 +3,8 @@
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Reactive.Threading.Tasks;
+    using System.Reactive.Linq;
     using System.Threading.Tasks;
 
     using LanguageExt;
@@ -14,31 +16,45 @@
 
     public class Processor
     {
+        private readonly Atom<Option<WorkingStateInfo>> workingState =
+            Atom<Option<WorkingStateInfo>>(None);
+
         public Processor(Options options)
             => Options = options;
 
         /// <summary>
         /// Run the processor loop indefinitely.
         /// </summary>
-        /// <returns>Task.</returns>
-        public Task ProcessAsync() => Task.Run(async () =>
+        /// <returns>Observable of optional working state information.
+        /// Missing values indicate that there is currently no work to do.</returns>
+        public IObservable<Option<WorkingStateInfo>> ProcessAsync()
         {
-            var concurrencyLimit = new SemaphoreSlim(Options.MaxConcurrent, Options.MaxConcurrent);
+            var workingStateObservable = Observable.FromEvent<AtomChangedEvent<Option<WorkingStateInfo>>, Option<WorkingStateInfo>>(
+                h => workingState.Change += h,
+                h => workingState.Change -= h);
 
-            while (true)
+            var watchObservable = Task.Run(async () =>
             {
-                var tasks = CheckForImageFiles(Options.SourceDirectory);
+                var concurrencyLimit = new SemaphoreSlim(Options.MaxConcurrent, Options.MaxConcurrent);
+                workingState.Swap(_ => None);
 
-                WorkingState = new WorkingStateInfo(tasks.Count(), tasks.Count());
+                while (true)
+                {
+                    var tasks = CheckForImageFiles(Options.SourceDirectory);
 
-                var jobs = tasks.Select(item => ProcessAsync(item, concurrencyLimit)).ToList();
+                    workingState.Swap(_ => new WorkingStateInfo(tasks.Count(), tasks.Count()));
 
-                await Task.WhenAll(jobs);
-                WorkingState = None;
+                    var jobs = tasks.Select(item => ProcessAsync(item, concurrencyLimit)).ToList();
 
-                await Task.Delay(Options.CheckDelay.ToTimeSpan());
-            }
-        });
+                    await Task.WhenAll(jobs);
+                    workingState.Swap(_ => None);
+
+                    await Task.Delay(Options.CheckDelay.ToTimeSpan());
+                }
+            }).ToObservable().Select(_ => Option<WorkingStateInfo>.None);
+
+            return Observable.Merge(workingStateObservable, watchObservable);
+        }
 
         /// <summary>
         /// Find all image files in the given directory.
@@ -54,7 +70,7 @@
         /// <summary>
         /// Process a single task item.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Task.</returns>
         private async Task ProcessAsync(TaskItem item, SemaphoreSlim concurrencyLimit)
         {
             string original = Path.Combine(Options.DestinationDirectory, Path.GetFileName(item.Value));
@@ -71,15 +87,9 @@
             {
                 using var writeStream = File.OpenWrite(Path.Combine(Options.MovedDirectory, Path.GetFileName(item.Value)));
                 await img.SaveAsync(writeStream, new JpegEncoder { ColorType = JpegColorType.Rgb, Quality = 85 });
-                WorkingState = WorkingState.Map(ws => ws with { CurrentCount = ws.CurrentCount - 1 });
+                workingState.Swap(s => s.Map(ws => ws with { CurrentCount = ws.CurrentCount - 1 }));
             }
         }
-
-        /// <summary>
-        /// Gets optional working state information.
-        /// Absence indicates that there is currently nothing to do.
-        /// </summary>
-        public Option<WorkingStateInfo> WorkingState { get; private set; }
 
         /// <summary> 
         /// Options set during start up.

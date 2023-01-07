@@ -1,5 +1,7 @@
 ﻿namespace ImageResizer
 {
+    using System.Reactive.Linq;
+
     using static LanguageExt.Prelude;
 
     class Program
@@ -19,21 +21,19 @@
             };
 
             Processor processor = new(opts);
-            var processorTask = processor.ProcessAsync();
+            var statusObservable = processor.ProcessAsync();
 
-            while (!processorTask.IsCompleted)
+            using var _ = statusObservable.Subscribe(workingState =>
             {
-                Thread.Sleep(1000);
-
-                var msg = processor.WorkingState.Match(
+                var msg = workingState.Match(
                     Some: state => $"{state.CurrentCount}/{state.TaskCount}",
                     None: () => "Waiting...");
 
                 do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
                 Console.Write(msg);
-            }
+            });
 
-            await processorTask;
+            await statusObservable.LastOrDefaultAsync();
         }
     }
 }
