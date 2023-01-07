@@ -27,14 +27,15 @@
         {
             var workingState = Atom<Option<WorkingStateInfo>>(None);
 
-            var workingStateObservable = Observable.FromEvent<AtomChangedEvent<Option<WorkingStateInfo>>, Option<WorkingStateInfo>>(
-                h => workingState.Change += h,
-                h => workingState.Change -= h);
+            var workingStateObservable = Observable
+                .FromEvent<AtomChangedEvent<Option<WorkingStateInfo>>, Option<WorkingStateInfo>>(
+                    h => workingState.Change += h,
+                    h => workingState.Change -= h)
+                .StartWith(workingState.Value);
 
             var watchObservable = Task.Run(async () =>
             {
                 var concurrencyLimit = new SemaphoreSlim(options.MaxConcurrent, options.MaxConcurrent);
-                workingState.Swap(_ => None);
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
