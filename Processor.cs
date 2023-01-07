@@ -14,42 +14,44 @@
     using SixLabors.ImageSharp.Formats.Jpeg;
     using ImageResizer.Components;
 
-    public class Processor
+    public static class Processor
     {
-        private readonly Atom<Option<WorkingStateInfo>> workingState =
-            Atom<Option<WorkingStateInfo>>(None);
-
-        public Processor(Options options)
-            => Options = options;
-
         /// <summary>
         /// Run the processor loop indefinitely.
         /// </summary>
         /// <returns>Observable of optional working state information.
         /// Missing values indicate that there is currently no work to do.</returns>
-        public IObservable<Option<WorkingStateInfo>> ProcessAsync(CancellationToken cancellationToken = default)
+        public static IObservable<Option<WorkingStateInfo>> RunAsync(
+            Options options,
+            CancellationToken cancellationToken = default)
         {
+            var workingState = Atom<Option<WorkingStateInfo>>(None);
+
             var workingStateObservable = Observable.FromEvent<AtomChangedEvent<Option<WorkingStateInfo>>, Option<WorkingStateInfo>>(
                 h => workingState.Change += h,
                 h => workingState.Change -= h);
 
             var watchObservable = Task.Run(async () =>
             {
-                var concurrencyLimit = new SemaphoreSlim(Options.MaxConcurrent, Options.MaxConcurrent);
+                var concurrencyLimit = new SemaphoreSlim(options.MaxConcurrent, options.MaxConcurrent);
                 workingState.Swap(_ => None);
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    var tasks = CheckForImageFiles(Options.SourceDirectory);
+                    var tasks = CheckForImageFiles(options.SourceDirectory);
 
                     workingState.Swap(_ => new WorkingStateInfo(tasks.Count(), tasks.Count()));
 
-                    var jobs = tasks.Select(item => ProcessAsync(item, concurrencyLimit)).ToList();
+                    var jobs = tasks
+                        .Select(item => ProcessAsync(item, options, concurrencyLimit)
+                            .ContinueWith(t => workingState
+                                .Swap(s => s.Map(ws => ws with { CurrentCount = ws.CurrentCount - 1 }))))
+                        .ToList();
 
                     await Task.WhenAll(jobs);
                     workingState.Swap(_ => None);
 
-                    await Task.Delay(Options.CheckDelay.ToTimeSpan());
+                    await Task.Delay(options.CheckDelay.ToTimeSpan());
                 }
             }).ToObservable();
 
@@ -71,30 +73,24 @@
         /// Process a single task item.
         /// </summary>
         /// <returns>Task.</returns>
-        private async Task ProcessAsync(TaskItem item, SemaphoreSlim concurrencyLimit)
+        private static async Task ProcessAsync(TaskItem item, Options options, SemaphoreSlim concurrencyLimit)
         {
-            string original = Path.Combine(Options.DestinationDirectory, Path.GetFileName(item.Value));
+            string original = Path.Combine(options.DestinationDirectory, Path.GetFileName(item.Value));
             File.Move(item.Value, original);
 
             var img = await Resizer.ResizeAsync(
                 new TaskItem(original),
-                Options.Width,
-                Options.Height,
-                Options.KeepAspectRatio,
+                options.Width,
+                options.Height,
+                options.KeepAspectRatio,
                 concurrencyLimit);
 
             if (img != null)
             {
-                using var writeStream = File.OpenWrite(Path.Combine(Options.MovedDirectory, Path.GetFileName(item.Value)));
+                using var writeStream = File.OpenWrite(Path.Combine(options.MovedDirectory, Path.GetFileName(item.Value)));
                 await img.SaveAsync(writeStream, new JpegEncoder { ColorType = JpegColorType.Rgb, Quality = 85 });
-                workingState.Swap(s => s.Map(ws => ws with { CurrentCount = ws.CurrentCount - 1 }));
             }
         }
-
-        /// <summary> 
-        /// Options set during start up.
-        /// </summary>
-        public Options Options { get; }
 
         /// <summary>
         /// Working state information.

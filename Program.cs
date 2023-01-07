@@ -27,8 +27,7 @@
                 cts.Cancel();
             };
 
-            Processor processor = new(opts);
-            var statusObservable = processor.ProcessAsync(cts.Token);
+            var statusObservable = Processor.RunAsync(opts, cts.Token);
 
             using var _ = statusObservable.Subscribe(workingState =>
             {
