@@ -36,7 +36,7 @@
                 await Task.WhenAll(jobs);
                 WorkingState = None;
 
-                Thread.Sleep(1000);
+                await Task.Delay(Options.CheckDelay.ToTimeSpan());
             }
         });
 

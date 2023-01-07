@@ -1,5 +1,7 @@
 ﻿namespace ImageResizer
 {
+    using static LanguageExt.Prelude;
+
     class Program
     {
         static async Task Main(string[] args)
@@ -13,6 +15,7 @@
                 Height = 100,
                 KeepAspectRatio = true,
                 MaxConcurrent = 4,
+                CheckDelay = 500 * ms,
             };
 
             Processor processor = new(opts);
