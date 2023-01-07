@@ -27,7 +27,7 @@
         /// </summary>
         /// <returns>Observable of optional working state information.
         /// Missing values indicate that there is currently no work to do.</returns>
-        public IObservable<Option<WorkingStateInfo>> ProcessAsync()
+        public IObservable<Option<WorkingStateInfo>> ProcessAsync(CancellationToken cancellationToken = default)
         {
             var workingStateObservable = Observable.FromEvent<AtomChangedEvent<Option<WorkingStateInfo>>, Option<WorkingStateInfo>>(
                 h => workingState.Change += h,
@@ -38,7 +38,7 @@
                 var concurrencyLimit = new SemaphoreSlim(Options.MaxConcurrent, Options.MaxConcurrent);
                 workingState.Swap(_ => None);
 
-                while (true)
+                while (!cancellationToken.IsCancellationRequested)
                 {
                     var tasks = CheckForImageFiles(Options.SourceDirectory);
 
@@ -51,9 +51,9 @@
 
                     await Task.Delay(Options.CheckDelay.ToTimeSpan());
                 }
-            }).ToObservable().Select(_ => Option<WorkingStateInfo>.None);
+            }).ToObservable();
 
-            return Observable.Merge(workingStateObservable, watchObservable);
+            return workingStateObservable.TakeUntil(watchObservable);
         }
 
         /// <summary>

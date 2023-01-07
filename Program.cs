@@ -20,8 +20,15 @@
                 CheckDelay = 500 * ms,
             };
 
+            CancellationTokenSource cts = new();
+            Console.CancelKeyPress += (o, e) =>
+            {
+                e.Cancel = true;
+                cts.Cancel();
+            };
+
             Processor processor = new(opts);
-            var statusObservable = processor.ProcessAsync();
+            var statusObservable = processor.ProcessAsync(cts.Token);
 
             using var _ = statusObservable.Subscribe(workingState =>
             {
