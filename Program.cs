@@ -12,6 +12,7 @@
                 Width = 100,
                 Height = 100,
                 KeepAspectRatio = true,
+                MaxConcurrent = 4,
             };
 
             Processor processor = new(opts);

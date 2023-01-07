@@ -1,11 +1,5 @@
 ﻿namespace ImageResizer
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Text;
-    using System.Threading.Tasks;
-
     public record Options
     {
         /// <summary>
@@ -38,5 +32,9 @@
         /// </summary>
         public bool KeepAspectRatio { get; init; }
 
+        /// <summary>
+        /// Number of maximum concurrent tasks.
+        /// </summary>
+        public int MaxConcurrent { get; init; } = 1;
     }
 }

@@ -14,11 +14,6 @@
 
     public class Processor
     {
-        /// <summary>
-        /// Maximum tasks to use.
-        /// </summary>
-        private int maxTasks = 5;
-
         public Processor(Options options)
             => Options = options;
 
@@ -28,13 +23,15 @@
         /// <returns>Task.</returns>
         public Task ProcessAsync() => Task.Run(async () =>
         {
+            var concurrencyLimit = new SemaphoreSlim(Options.MaxConcurrent, Options.MaxConcurrent);
+
             while (true)
             {
                 var tasks = CheckForImageFiles(Options.SourceDirectory);
 
                 WorkingState = new WorkingStateInfo(tasks.Count(), tasks.Count());
 
-                var jobs = tasks.Select(item => ProcessAsync(item)).ToList();
+                var jobs = tasks.Select(item => ProcessAsync(item, concurrencyLimit)).ToList();
 
                 await Task.WhenAll(jobs);
                 WorkingState = None;
@@ -58,16 +55,17 @@
         /// Process a single task item.
         /// </summary>
         /// <returns></returns>
-        private async Task ProcessAsync(TaskItem item)
+        private async Task ProcessAsync(TaskItem item, SemaphoreSlim concurrencyLimit)
         {
             string original = Path.Combine(Options.DestinationDirectory, Path.GetFileName(item.Value));
             File.Move(item.Value, original);
 
-            var img = Resizer.Resize(
+            var img = await Resizer.ResizeAsync(
                 new TaskItem(original),
                 Options.Width,
                 Options.Height,
-                Options.KeepAspectRatio);
+                Options.KeepAspectRatio,
+                concurrencyLimit);
 
             if (img != null)
             {
