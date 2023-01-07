@@ -39,17 +39,21 @@
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     var tasks = CheckForImageFiles(options.SourceDirectory);
+                    int taskCount = tasks.Count();
 
-                    workingState.Swap(_ => new WorkingStateInfo(tasks.Count(), tasks.Count()));
+                    if (taskCount > 0)
+                    {
+                        workingState.Swap(_ => new WorkingStateInfo(taskCount, taskCount));
 
-                    var jobs = tasks
-                        .Select(item => ProcessAsync(item, options, concurrencyLimit)
-                            .ContinueWith(t => workingState
-                                .Swap(s => s.Map(ws => ws with { CurrentCount = ws.CurrentCount - 1 }))))
-                        .ToList();
+                        var jobs = tasks
+                            .Select(item => ProcessAsync(item, options, concurrencyLimit)
+                                .ContinueWith(t => workingState
+                                    .Swap(s => s.Map(ws => ws with { CurrentCount = ws.CurrentCount - 1 }))))
+                            .ToList();
 
-                    await Task.WhenAll(jobs);
-                    workingState.Swap(_ => None);
+                        await Task.WhenAll(jobs);
+                        workingState.Swap(_ => None);
+                    }
 
                     await Task.Delay(options.CheckDelay.ToTimeSpan());
                 }
