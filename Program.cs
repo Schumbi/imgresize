@@ -1,8 +1,12 @@
 ﻿namespace ImageResizer
 {
+    using System.Reactive.Linq;
+
+    using static LanguageExt.Prelude;
+
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var opts = new Options()
             {
@@ -12,25 +16,30 @@
                 Width = 100,
                 Height = 100,
                 KeepAspectRatio = true,
+                MaxConcurrent = 4,
+                CheckDelay = 500 * ms,
             };
 
-            Processor worker = new(opts);
-
-            bool exit = false;
-
-            while(!exit)
+            CancellationTokenSource cts = new();
+            Console.CancelKeyPress += (o, e) =>
             {
-                Thread.Sleep(1000);
-                if(worker.Working)
-                {
-                    do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
-                    Console.Write($"{worker.CurrentCount}/{worker.TaskCount}");
-                } else
-                {
-                    do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
-                    Console.Write("Waiting...");
-                }
-            }
+                e.Cancel = true;
+                cts.Cancel();
+            };
+
+            var statusObservable = Processor.RunAsync(opts, cts.Token);
+
+            using var _ = statusObservable.Subscribe(workingState =>
+            {
+                var msg = workingState.Match(
+                    Some: state => $"{state.CurrentCount}/{state.TaskCount}",
+                    None: () => "Waiting...");
+
+                do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
+                Console.Write(msg);
+            });
+
+            await statusObservable.LastOrDefaultAsync();
         }
     }
 }

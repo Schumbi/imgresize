@@ -3,9 +3,9 @@
     using System.Threading.Tasks;
 
     using SixLabors.ImageSharp;
-    using SixLabors.ImageSharp.Formats;
-    using SixLabors.ImageSharp.PixelFormats;
     using SixLabors.ImageSharp.Processing;
+
+    using static LanguageExt.Prelude;
 
     /// <summary>
     /// Resize an image.
@@ -13,10 +13,9 @@
     internal class Resizer
     {
         //int newHeight = (int)(image.Height * ((float)newWidth / image.Width));
-        public static Image Resize(TaskItem taskItem, int newWidth, int newHeight, bool keepRation)
+        public static async Task<Image> ResizeAsync(TaskItem taskItem, int newWidth, int newHeight, bool keepRation)
         {
-            using var stream = File.OpenRead(taskItem.Value);
-            var image = Image.Load(stream, out IImageFormat format);
+            var image = await Image.LoadAsync(taskItem.Value);
 
             if (keepRation)
             {
@@ -34,6 +33,7 @@
             }
 
             image.Mutate(x => x.Resize(newWidth, newHeight));
+
             return image;
         }
     }
