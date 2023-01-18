@@ -17,6 +17,10 @@
                 Arity = ArgumentArity.ExactlyOne
             };
 
+            sourceArg.AddValidator(result => {
+                var a = result.GetValueForOption(sourceArg);
+            });
+
             var destArg = new System.CommandLine.Option<DirectoryInfo>(
                 aliases: new string[] {"--destination", "-d"},
                 description: "The directory the files should be moved to.")
@@ -33,7 +37,7 @@
                 Arity = ArgumentArity.ExactlyOne
             };
 
-            var rootCommand = new RootCommand("Resizes JPG-Images and moves images.")
+            var rootCommand = new RootCommand("Watches a directory, resizes JPG-Images and moves images.")
             {
                 sourceArg,
                 destArg,
