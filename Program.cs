@@ -9,29 +9,41 @@
     {
         static int Main(string[] args)
         {
-            var sourceArg = new System.CommandLine.Option<DirectoryInfo?>(
-                name: "--source",
-                description: "The directory with source files!"
-            );
-            sourceArg.Arity = ArgumentArity.ExactlyOne;
+            var sourceArg = new System.CommandLine.Option<DirectoryInfo>(
+                aliases: new string[] {"--source", "-s"},
+                description: "The directory watched for new files.") 
+            {
+                IsRequired = true,
+                Arity = ArgumentArity.ExactlyOne
+            };
 
-            var destArg = new System.CommandLine.Option<DirectoryInfo?>(
-                name:"--destination",
-                getDefaultValue: () => new DirectoryInfo( $"{Path.GetTempPath()}{Path.DirectorySeparatorChar}imgResizer_originals" ),
-                description: "The directory the files should be moved to."
-            );
+            var destArg = new System.CommandLine.Option<DirectoryInfo>(
+                aliases: new string[] {"--destination", "-d"},
+                description: "The directory the files should be moved to.")
+            {
+                IsRequired = true,
+                Arity = ArgumentArity.ExactlyOne
+            };
 
-            var moveArg = new System.CommandLine.Option<DirectoryInfo?>(
-                name: "--move",
-                getDefaultValue: () => new DirectoryInfo( $"{Path.GetTempPath()}{Path.DirectorySeparatorChar}imgResizer_resized" ),
-                description: "The directory for the resized images!"
-            );
+            var moveArg = new System.CommandLine.Option<DirectoryInfo>(
+                aliases: new string[] {"--move", "-m"},
+                description: "The directory for the resized images!") 
+            {
+                IsRequired = true,
+                Arity = ArgumentArity.ExactlyOne
+            };
+
             var rootCommand = new RootCommand("Resizes JPG-Images and moves images.")
             {
                 sourceArg,
                 destArg,
                 moveArg
             };
+
+            rootCommand.SetHandler(async (source, destination, move) =>
+            {
+                await Resize(source, destination, move);
+            }, destArg, sourceArg, moveArg);
 
             return rootCommand.InvokeAsync(args).Result;
         }
