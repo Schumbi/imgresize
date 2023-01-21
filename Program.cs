@@ -80,7 +80,7 @@
             var geometryArg = new System.CommandLine.Option<string>(
                 aliases: new string[] { "--geometry", "-g" },
                 getDefaultValue: () => "1024x768",
-                description: "The new size of the resized images (e.g. 1024x768).")
+                description: "The new size of the resized images.")
             {
                 Arity = ArgumentArity.ExactlyOne
             };
@@ -98,12 +98,18 @@
                 }
             });
 
+            var keepAspectRationArg = new System.CommandLine.Option<bool>(
+                aliases: new string[] { "--keepAspectRatio", "-k" },
+                getDefaultValue: () => true,
+                description: "Keep aspect ratio. Heighest geometry length is reference.");
+
             var rootCommand = new RootCommand("Watches a directory, resizes JPG-Images and moves images.")
             {
                 sourceArg,
                 destArg,
                 moveArg,
                 geometryArg,
+                keepAspectRationArg
             };
 
             // Validate duplicate directories
@@ -124,12 +130,12 @@
                 }
             });
 
-            rootCommand.SetHandler(Resize, sourceArg, destArg, moveArg, geometryArg);
+            rootCommand.SetHandler(Resize, sourceArg, destArg, moveArg, geometryArg, keepAspectRationArg);
 
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        internal static async Task Resize(DirectoryInfo source, DirectoryInfo destination, DirectoryInfo move, string geometry)
+        internal static async Task Resize(DirectoryInfo source, DirectoryInfo destination, DirectoryInfo move, string geometry, bool keepAspectRatio)
         {
 
             (int x, int y) geom = ParseGeometryString(geometry).
@@ -142,7 +148,7 @@
                 SourceDirectory = source.FullName,
                 Width = geom.x,
                 Height = geom.y,
-                KeepAspectRatio = true,
+                KeepAspectRatio = keepAspectRatio,
                 MaxConcurrent = 4,
                 CheckDelay = 500 * ms,
             };
