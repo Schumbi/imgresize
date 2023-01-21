@@ -19,7 +19,7 @@
 
             if (keepRation)
             {
-                double ratio = image.Width / image.Height;
+                double ratio = (double)image.Width / (double)image.Height;
                 if (ratio > 1.0)
                 {
                     // landscape
@@ -28,7 +28,7 @@
                 else
                 {
                     // protrait
-                    newWidth = (int)Math.Round(newHeight / ratio);
+                    newWidth = (int)Math.Round(newHeight * ratio);
                 }
             }
 
