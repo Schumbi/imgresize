@@ -2,24 +2,44 @@
 {
     using System.Reactive.Linq;
     using System.CommandLine;
+    
+    using Extensions;
 
     using static LanguageExt.Prelude;
+    using LanguageExt.Common;
+    using System.CommandLine.Parsing;
+    using LanguageExt;
 
     class Program
     {
         static int Main(string[] args)
         {
+            static void DirValidator(OptionResult result)
+            {
+                var option = result.Option;
+                var obj = result.GetValueForOption(option);
+                if ( obj is DirectoryInfo)
+                {
+                    var dirInfo = obj as DirectoryInfo;
+                    if (!dirInfo?.Exists ?? false)
+                    {
+                        result.ErrorMessage = $"Argument --{result.Option.Name}: Directory must exist!";
+                    }
+                }
+                else
+                {
+                    result.ErrorMessage = $"Argument --{result.Option.Name}: Not a directory!";
+                }
+            }
+
             var sourceArg = new System.CommandLine.Option<DirectoryInfo>(
                 aliases: new string[] {"--source", "-s"},
                 description: "The directory watched for new files.") 
             {
                 IsRequired = true,
-                Arity = ArgumentArity.ExactlyOne
+                Arity = ArgumentArity.ExactlyOne,
             };
-
-            sourceArg.AddValidator(result => {
-                var a = result.GetValueForOption(sourceArg);
-            });
+            sourceArg.AddValidator(DirValidator);
 
             var destArg = new System.CommandLine.Option<DirectoryInfo>(
                 aliases: new string[] {"--destination", "-d"},
@@ -28,6 +48,7 @@
                 IsRequired = true,
                 Arity = ArgumentArity.ExactlyOne
             };
+            destArg.AddValidator(DirValidator);
 
             var moveArg = new System.CommandLine.Option<DirectoryInfo>(
                 aliases: new string[] {"--move", "-m"},
@@ -36,6 +57,7 @@
                 IsRequired = true,
                 Arity = ArgumentArity.ExactlyOne
             };
+            moveArg.AddValidator(DirValidator);   
 
             var rootCommand = new RootCommand("Watches a directory, resizes JPG-Images and moves images.")
             {
@@ -44,10 +66,25 @@
                 moveArg
             };
 
-            rootCommand.SetHandler(async (source, destination, move) =>
+            // Validate duplicate directories
+            rootCommand.AddValidator(result =>
             {
-                await Resize(source, destination, move);
-            }, destArg, sourceArg, moveArg);
+                var duplicate = result.Children.
+                    Where(c => c is OptionResult).
+                    Select(c => c as OptionResult).
+                    Select(optResult => optResult?.Option ?? new System.CommandLine.Option<DirectoryInfo>("fail!")).
+                    Where(opt => opt.ValueType == typeof(DirectoryInfo)).
+                    Select(o => result.GetValueForOption(o) as DirectoryInfo).
+                    GroupBy(x => x?.FullName ?? "fail!").
+                    Where(g => g.Count() > 1).
+                    Any();
+                if (duplicate)
+                {
+                    result.ErrorMessage = $"Paths must be unique!";
+                }
+            });
+
+            rootCommand.SetHandler(Resize, destArg, sourceArg, moveArg);
 
             return rootCommand.InvokeAsync(args).Result;
         }
