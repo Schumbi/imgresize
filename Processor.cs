@@ -91,6 +91,7 @@
         private static async Task<TaskItem> ProcessAsync(TaskItem item, Options options)
         {
             string original = Path.Combine(options.DestinationDirectory, Path.GetFileName(item.Value));
+            // todo Check if file exists. If so, add increased prefix and check again
             File.Move(item.Value, original);
 
             var img = await Resizer.ResizeAsync(

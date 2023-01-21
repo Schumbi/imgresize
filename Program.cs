@@ -2,23 +2,41 @@
 {
     using System.Reactive.Linq;
     using System.CommandLine;
-    
+
     using Extensions;
 
     using static LanguageExt.Prelude;
     using LanguageExt.Common;
     using System.CommandLine.Parsing;
     using LanguageExt;
+    using LanguageExt.ClassInstances;
+    using LanguageExt.ClassInstances.Const;
 
     class Program
     {
+        private static LanguageExt.Option<(int x, int y)> ParseGeometryString(string s)
+        {
+            var geom = s.Split("x", 2, StringSplitOptions.TrimEntries);
+            if (geom.Length == 2)
+            {
+                if (int.TryParse(geom[0], out int x) && int.TryParse(geom[1], out int y))
+                {
+                    if (x > 0 && y > 0)
+                    {
+                        return (x, y);
+                    }
+                }
+            }
+            return LanguageExt.Option<(int x, int y)>.None;
+        }
+
         static int Main(string[] args)
         {
             static void DirValidator(OptionResult result)
             {
                 var option = result.Option;
                 var obj = result.GetValueForOption(option);
-                if ( obj is DirectoryInfo)
+                if (obj is DirectoryInfo)
                 {
                     var dirInfo = obj as DirectoryInfo;
                     if (!dirInfo?.Exists ?? false)
@@ -33,8 +51,8 @@
             }
 
             var sourceArg = new System.CommandLine.Option<DirectoryInfo>(
-                aliases: new string[] {"--source", "-s"},
-                description: "The directory watched for new files.") 
+                aliases: new string[] { "--source", "-s" },
+                description: "The directory watched for new files.")
             {
                 IsRequired = true,
                 Arity = ArgumentArity.ExactlyOne,
@@ -42,7 +60,7 @@
             sourceArg.AddValidator(DirValidator);
 
             var destArg = new System.CommandLine.Option<DirectoryInfo>(
-                aliases: new string[] {"--destination", "-d"},
+                aliases: new string[] { "--destination", "-d" },
                 description: "The directory the files should be moved to.")
             {
                 IsRequired = true,
@@ -51,19 +69,41 @@
             destArg.AddValidator(DirValidator);
 
             var moveArg = new System.CommandLine.Option<DirectoryInfo>(
-                aliases: new string[] {"--move", "-m"},
-                description: "The directory for the resized images!") 
+                aliases: new string[] { "--move", "-m" },
+                description: "The directory for the resized images.")
             {
                 IsRequired = true,
                 Arity = ArgumentArity.ExactlyOne
             };
-            moveArg.AddValidator(DirValidator);   
+            moveArg.AddValidator(DirValidator);
+
+            var geometryArg = new System.CommandLine.Option<string>(
+                aliases: new string[] { "--geometry", "-g" },
+                getDefaultValue: () => "1024x768",
+                description: "The new size of the resized images (e.g. 1024x768).")
+            {
+                Arity = ArgumentArity.ExactlyOne
+            };
+            geometryArg.AddValidator(result =>
+            {
+                var option = result.Option;
+                var obj = result.GetValueForOption(option);
+                if (obj is not null and string)
+                {
+                    var s = obj as string ?? string.Empty;
+                    if(ParseGeometryString(s).IsNone)
+                    {
+                        result.ErrorMessage = $"Argument --{result.Option.Name}: Not a valid geometry!";
+                    }
+                }
+            });
 
             var rootCommand = new RootCommand("Watches a directory, resizes JPG-Images and moves images.")
             {
                 sourceArg,
                 destArg,
-                moveArg
+                moveArg,
+                geometryArg,
             };
 
             // Validate duplicate directories
@@ -84,20 +124,24 @@
                 }
             });
 
-            rootCommand.SetHandler(Resize, destArg, sourceArg, moveArg);
+            rootCommand.SetHandler(Resize, sourceArg, destArg, moveArg, geometryArg);
 
             return rootCommand.InvokeAsync(args).Result;
         }
 
-        internal static async Task Resize(DirectoryInfo source, DirectoryInfo destination, DirectoryInfo move)
+        internal static async Task Resize(DirectoryInfo source, DirectoryInfo destination, DirectoryInfo move, string geometry)
         {
+
+            (int x, int y) geom = ParseGeometryString(geometry).
+            Match(Some: s => s, None: (1024,768));
+
             var opts = new Options()
             {
                 DestinationDirectory = destination.FullName,
                 MovedDirectory = move.FullName,
                 SourceDirectory = source.FullName,
-                Width = 100,
-                Height = 100,
+                Width = geom.x,
+                Height = geom.y,
                 KeepAspectRatio = true,
                 MaxConcurrent = 4,
                 CheckDelay = 500 * ms,
