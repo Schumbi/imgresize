@@ -24,7 +24,7 @@
         public static IObservable<Option<WorkingStateInfo>> RunAsync(
             Options options,
             CancellationToken cancellationToken = default)
-            => ProcessDirectory(options, cancellationToken)
+            => Observable.Defer(() => ProcessDirectory(options, cancellationToken))
                 .Select(Some)
                 .Append(None)
                 .Concat(Wait<Option<WorkingStateInfo>>(
