@@ -12,14 +12,13 @@
     /// </summary>
     internal class Resizer
     {
-        //int newHeight = (int)(image.Height * ((float)newWidth / image.Width));
         public static async Task<Image> ResizeAsync(TaskItem taskItem, int newWidth, int newHeight, bool keepRation)
         {
             var image = await Image.LoadAsync(taskItem.Value);
 
             if (keepRation)
             {
-                double ratio = image.Width / image.Height;
+                double ratio = image.Width / (double)image.Height;
                 if (ratio > 1.0)
                 {
                     // landscape
@@ -28,7 +27,7 @@
                 else
                 {
                     // protrait
-                    newWidth = (int)Math.Round(newHeight / ratio);
+                    newWidth = (int)Math.Round(newHeight * ratio);
                 }
             }
 
