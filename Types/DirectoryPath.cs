@@ -10,6 +10,8 @@
         {
         }
 
-        public bool DirectoryExists => Directory.Exists(Value);
+        public virtual bool DirectoryExists => Directory.Exists(Value);
+
+        public static DirectoryPath Create(string path) => new DirectoryPath(path);
     }
 }
