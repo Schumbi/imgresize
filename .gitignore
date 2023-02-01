@@ -3,3 +3,8 @@ obj/
 .vscode/launch.json
 .vscode/tasks.json
 /.vs
+.gitignore
+/ImageResizer.sln
+/d
+/m
+/Properties
