@@ -69,5 +69,40 @@
                 return Option<DirectoryPath>.None;
             }
         }
+
+        /// <summary>
+        /// Combine directory name, file name, and extension to a file path.
+        /// </summary>
+        /// <param name="directory">Directory path.</param>
+        /// <param name="name">File name without extension.</param>
+        /// <param name="ext">Extension starting with ".".</param>
+        /// <returns></returns>
+        public static Option<FilePath> Combine(DirectoryPath directory, string name, string ext)
+        {
+            if(directory.DirectoryExists && 
+                !string.IsNullOrWhiteSpace(name) && 
+                !string.IsNullOrWhiteSpace(ext) &&
+                ext.StartsWith('.') &&
+                ext.Length > 1)
+            {
+                
+                return new FilePath(Path.TrimEndingDirectorySeparator(directory.Value) + Path.DirectorySeparatorChar + name + ext);
+            }
+
+            return Option<FilePath>.None;
+         }
+
+        /// <summary>
+        /// A default empty file path.
+        /// </summary>
+        /// <returns>empty.</returns>
+        public static FilePath Empty() => new(string.Empty);
+
+        /// <summary>
+        /// Create a File Path.
+        /// </summary>
+        /// <param name="path">Path to use.</param>
+        /// <returns>Filepath.</returns>
+        public static FilePath Create(string path) => new(path);
     }
 }
