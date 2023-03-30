@@ -49,7 +49,7 @@
         /// <returns></returns>
         public static LanguageExt.Option<FilePath> GuardDestination(FilePath original, int count = 0, bool error = false)
         {
-            if(!original.FileExists)
+            if (!original.FileExists)
                 return original;
 
             if (error)
@@ -60,9 +60,10 @@
 
             var nextFilePath = original.Bind(o => FilePath
                 .Combine(
-                    original.Directory.Match(p => p, new DirectoryPath(string.Empty)),
-                     original.Name.Match(n => $"{n}_{count}", $"{count}"),
-                    original.Extension.Match(e => e, string.Empty))
+                original.Directory.Match(p => p, new DirectoryPath(string.Empty)),
+                    original.Name.Match(name =>
+                        name.EndsWith($"_{count - 1}") ? name.Replace($"_{count - 1}", $"_{count}") : $"{name}_{count}", $"{count}"),
+                     original.Extension.Match(e => e, string.Empty))
                 .IfNone(FilePath.Empty));
 
             error = nextFilePath == FilePath.Empty() || nextFilePath.Directory.IsNone || nextFilePath.Extension.IsNone;
