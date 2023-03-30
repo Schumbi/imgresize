@@ -18,7 +18,7 @@
                     .Match(
                         Some: fp =>
                         {
-                            File.Move(source.Value, destination.Value);
+                            File.Move(source.Value, fp.Value);
                             return true;
                         },
                         None: () => false))
@@ -61,7 +61,7 @@
             var nextFilePath = original.Bind(o => FilePath
                 .Combine(
                     original.Directory.Match(p => p, new DirectoryPath(string.Empty)),
-                    $"{original.Name}_{count}",
+                     original.Name.Match(n => $"{n}_{count}", $"{count}"),
                     original.Extension.Match(e => e, string.Empty))
                 .IfNone(FilePath.Empty));
 
