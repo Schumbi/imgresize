@@ -93,7 +93,7 @@
         {
             string original = Path.Combine(options.DestinationDirectory, Path.GetFileName(item.Value));
 
-            if(Mover.Move(FilePath.Create(item.Value), DirectoryPath.Create(original)))
+            if(Mover.Move(FilePath.Create(item.Value), DirectoryPath.Create(options.DestinationDirectory)))
             {
                 // todo Check if file exists. If so, add increased prefix and check again
                 //File.Move(item.Value, original);
