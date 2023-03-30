@@ -20,10 +20,10 @@
         {
             get
             {
-                if(FileExists)
+                if (FileExists)
                 {
                     var name = Path.GetFileNameWithoutExtension(Value);
-                    if(!string.IsNullOrWhiteSpace(name))
+                    if (!string.IsNullOrWhiteSpace(name))
                     {
                         return name;
                     }
@@ -39,13 +39,10 @@
         {
             get
             {
-                if(FileExists)
+                var ext = Path.GetExtension(Value);
+                if (!string.IsNullOrWhiteSpace(ext))
                 {
-                    var ext = Path.GetExtension(Value);
-                    if (!string.IsNullOrWhiteSpace(ext))
-                    {
-                        return ext;
-                    }
+                    return ext;
                 }
                 return Option<string>.None;
             }
@@ -58,14 +55,12 @@
         {
             get
             {
-                if(FileExists)
+                var dir = Path.GetDirectoryName(Value);
+                if (!string.IsNullOrWhiteSpace(dir))
                 {
-                    var dir = Path.GetDirectoryName(Value);
-                    if(!string.IsNullOrWhiteSpace(dir))
-                    {
-                        return new DirectoryPath(dir);
-                    }
+                    return new DirectoryPath(dir);
                 }
+
                 return Option<DirectoryPath>.None;
             }
         }
@@ -79,18 +74,18 @@
         /// <returns></returns>
         public static Option<FilePath> Combine(DirectoryPath directory, string name, string ext)
         {
-            if(directory.DirectoryExists && 
-                !string.IsNullOrWhiteSpace(name) && 
+            if (directory.DirectoryExists &&
+                !string.IsNullOrWhiteSpace(name) &&
                 !string.IsNullOrWhiteSpace(ext) &&
                 ext.StartsWith('.') &&
                 ext.Length > 1)
             {
-                
+
                 return new FilePath(Path.TrimEndingDirectorySeparator(directory.Value) + Path.DirectorySeparatorChar + name + ext);
             }
 
             return Option<FilePath>.None;
-         }
+        }
 
         /// <summary>
         /// A default empty file path.
