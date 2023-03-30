@@ -13,6 +13,7 @@
 
     using SixLabors.ImageSharp.Formats.Jpeg;
     using ImageResizer.Components;
+    using ImageResizer.Types;
 
     public static class Processor
     {
@@ -91,19 +92,25 @@
         private static async Task<TaskItem> ProcessAsync(TaskItem item, Options options)
         {
             string original = Path.Combine(options.DestinationDirectory, Path.GetFileName(item.Value));
-            // todo Check if file exists. If so, add increased prefix and check again
-            File.Move(item.Value, original);
 
-            var img = await Resizer.ResizeAsync(
-                new TaskItem(original),
-                options.Width,
-                options.Height,
-                options.KeepAspectRatio);
-
-            if (img != null)
+            if(Mover.Move(FilePath.Create(item.Value), DirectoryPath.Create(options.DestinationDirectory)))
             {
-                using var writeStream = File.OpenWrite(Path.Combine(options.MovedDirectory, Path.GetFileName(item.Value)));
-                await img.SaveAsync(writeStream, new JpegEncoder { ColorType = JpegColorType.Rgb, Quality = 85 });
+                // todo Check if file exists. If so, add increased prefix and check again
+                //File.Move(item.Value, original);
+
+                // TO TEST!
+
+                var img = await Resizer.ResizeAsync(
+                    new TaskItem(original),
+                    options.Width,
+                    options.Height,
+                    options.KeepAspectRatio);
+
+                if (img != null)
+                {
+                    using var writeStream = File.OpenWrite(Path.Combine(options.MovedDirectory, Path.GetFileName(item.Value)));
+                    await img.SaveAsync(writeStream, new JpegEncoder { ColorType = JpegColorType.Rgb, Quality = 85 });
+                }
             }
 
             return item;
