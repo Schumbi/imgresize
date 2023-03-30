@@ -65,7 +65,7 @@
                     original.Extension.Match(e => e, string.Empty))
                 .IfNone(FilePath.Empty));
 
-            error = nextFilePath.Directory.IsNone || nextFilePath.Extension.IsNone || nextFilePath == FilePath.Empty();
+            error = nextFilePath == FilePath.Empty() || nextFilePath.Directory.IsNone || nextFilePath.Extension.IsNone;
 
             return GuardDestination(nextFilePath, count, error);
         }
