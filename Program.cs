@@ -1,12 +1,13 @@
-﻿using System;
-using System.IO;
-
-using System.CommandLine.Parsing;
-using System.CommandLine;
-
-namespace MyNamespace
+﻿namespace ImageResizer
 {
-    class MyClassCS
+    using System;
+    using System.IO;
+
+    using System.CommandLine.Parsing;
+    using System.CommandLine;
+
+
+    class Program
     {
         private static void RunWatcher(DirectoryInfo watchedDir)
         {
@@ -45,7 +46,7 @@ namespace MyNamespace
                 Arity = ArgumentArity.ExactlyOne,
             };
 
-            
+
             var rootCommand = new RootCommand("Watches a directory and prints events happening on the inside.")
             {
                 sourceArg,
@@ -54,7 +55,7 @@ namespace MyNamespace
             rootCommand.SetHandler(RunWatcher, sourceArg);
 
             return rootCommand.InvokeAsync(args).Result;
-           
+
         }
 
         private static void OnChanged(object sender, FileSystemEventArgs e)
