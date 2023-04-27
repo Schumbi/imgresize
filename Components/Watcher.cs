@@ -11,9 +11,9 @@
     {
         public static Task RunWatcher(
             DirectoryInfo watchedDir,
-            Option<Func<FilePath, Unit>> created,
-            Option<Func<FilePath, Unit>> deleted,
-            Option<Func<Exception, Unit>> errorHandler,
+            Option<Action<FilePath>> created,
+            Option<Action<FilePath>> deleted,
+            Option<Action<Exception>> errorHandler,
             Option<Func<NotifyFilters>> notifyFilters,
             Option<Func<string>> fileFilter,
             bool recursive,
@@ -40,7 +40,7 @@
                  watcher.IncludeSubdirectories = recursive;
                  watcher.EnableRaisingEvents = true;
 
-                 await Task.Delay(-1);
+                 await Task.Delay(-1, cancellationToken);
 
              }, 
                  cancellationToken);
