@@ -6,6 +6,7 @@
 
     using LanguageExt;
     using ImageResizer.Types;
+    using ImageResizer.Extensions;
 
     internal class Watcher
     {
@@ -21,15 +22,21 @@
 
              => Task.Run(async () =>
              {
-                 //watcher.NotifyFilter = NotifyFilters.Size
-                 //            | NotifyFilters.FileName
-                 //            | NotifyFilters.LastWrite;
-
+                
                  using var watcher = new FileSystemWatcher(watchedDir.FullName);
 
-                 created.IfSome(f => watcher.Created += (object sender, FileSystemEventArgs e) => f.Invoke(FilePath.Create(e.FullPath)));
+                 created.IfSome(f => watcher.Created += (object sender, FileSystemEventArgs e) =>
+                    {
+                        Console.WriteLine($"{e.ChangeType}");
+                        f.Invoke(FilePath.Create(e.FullPath));
+                        e.FullPath.PrintFileInfo(Console.WriteLine);
+                    });
 
-                 deleted.IfSome(f => watcher.Deleted += (object sender, FileSystemEventArgs e) => f.Invoke(FilePath.Create(e.FullPath)));
+                 deleted.IfSome(f => watcher.Deleted += (object sender, FileSystemEventArgs e) =>
+                 {
+                    Console.WriteLine($"{e.ChangeType}");
+                     f.Invoke(FilePath.Create(e.FullPath));
+                 });
 
                  errorHandler.IfSome(f => watcher.Error += (object sender, ErrorEventArgs e) => f.Invoke(e.GetException()));
 
