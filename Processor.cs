@@ -28,12 +28,10 @@
             ThreadPool.SetMaxThreads(opts.MaxConcurrent, opts.MaxConcurrent);
             do
             {
-                Console.WriteLine("Run");
                 if (workload.Any() && ThreadPool.PendingWorkItemCount == 0)
                 {
                     if (mutex.WaitOne((int)opts.CheckDelay.Milliseconds))
                     {
-                        Console.WriteLine("Got mutex");
                         foreach (int i in Range(0, opts.MaxConcurrent))
                         {
                             if (workload.Any())
@@ -49,7 +47,6 @@
                             }
                         }
                         mutex.ReleaseMutex();
-                        Console.WriteLine("Released mutex");
                     }
                 }
                 else
@@ -78,7 +75,6 @@
         private static async Task<TaskItem> ProcessAsync(TaskItem item, Options options)
         {
             string original = Path.Combine(options.DestinationDirectory, Path.GetFileName(item.Value));
-
             if (Mover.Move(TaskItem.Create(item.Value), DirectoryPath.Create(options.DestinationDirectory)))
             {
                 var img = await Resizer.ResizeAsync(

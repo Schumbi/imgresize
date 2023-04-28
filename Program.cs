@@ -152,7 +152,7 @@
                 Width = geom.x,
                 Height = geom.y,
                 KeepAspectRatio = keepAspectRatio,
-                MaxConcurrent = 4,
+                MaxConcurrent = 40,
                 CheckDelay = 1000 * ms,
             };
             await ImgResize(opts);
@@ -178,9 +178,9 @@
                 {
                     if(mutex.WaitOne(100))
                     {
-                        Console.WriteLine($"Created {fp.Value}");
                         workItems.Enqueue(fp);
                         mutex.ReleaseMutex();
+                        fp.Value.PrintFileInfo(Console.WriteLine);
                     } 
                         else
                     {

@@ -27,9 +27,7 @@
 
                  created.IfSome(f => watcher.Created += (object sender, FileSystemEventArgs e) =>
                     {
-                        Console.WriteLine($"{e.ChangeType}");
                         f.Invoke(TaskItem.Create(e.FullPath));
-                        e.FullPath.PrintFileInfo(Console.WriteLine);
                     });
 
                  deleted.IfSome(f => watcher.Deleted += (object sender, FileSystemEventArgs e) =>
