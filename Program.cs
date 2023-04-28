@@ -172,8 +172,8 @@
                 LanguageExt.Option<Action<FilePath>>.Some((fp) => Console.WriteLine($"Created {fp.Value}")),
                 LanguageExt.Option<Action<FilePath>>.Some((fp) => Console.WriteLine($"Deleted {fp.Value}")),
                 LanguageExt.Option<Action<Exception>>.Some((e) => PrintException(e)),
-                LanguageExt.Option<Func<NotifyFilters>>.Some(() => NotifyFilters.Size | NotifyFilters.FileName | NotifyFilters.LastWrite),
-                LanguageExt.Option<Func<string>>.Some(() => "*.jpg"),
+                LanguageExt.Option<Func<NotifyFilters>>.Some(() => NotifyFilters.FileName ),
+                LanguageExt.Option<Func<string>>.Some(() => "*.JPG"),
                 true,
                 cts.Token);
 
