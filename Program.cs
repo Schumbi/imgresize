@@ -153,7 +153,7 @@
                 Height = geom.y,
                 KeepAspectRatio = keepAspectRatio,
                 MaxConcurrent = 4,
-                CheckDelay = 500 * ms,
+                CheckDelay = 1000 * ms,
             };
             await ImgResize(opts);
         }
@@ -167,29 +167,34 @@
                 cts.Cancel();
             };
 
-            await Watcher.RunWatcher(
+            Queue<TaskItem> workItems = new(Processor.CheckForImageFiles(opts.SourceDirectory));
+            Mutex mutex = new();
+
+            var t1 = Processor.Process(workItems, opts, mutex, cts.Token);
+
+            var t2 = Watcher.RunWatcher(
                  new DirectoryInfo(opts.SourceDirectory),
-                LanguageExt.Option<Action<FilePath>>.Some((fp) => Console.WriteLine($"Created {fp.Value}")),
-                LanguageExt.Option<Action<FilePath>>.Some((fp) => Console.WriteLine($"Deleted {fp.Value}")),
+                LanguageExt.Option<Action<TaskItem>>.Some((fp) =>
+                {
+                    if(mutex.WaitOne(100))
+                    {
+                        Console.WriteLine($"Created {fp.Value}");
+                        workItems.Enqueue(fp);
+                        mutex.ReleaseMutex();
+                    } 
+                        else
+                    {
+                        Console.WriteLine($"Missed { fp.Value }");
+                    }
+                }),
+                LanguageExt.Option<Action<TaskItem>>.Some((fp) => Console.WriteLine($"Deleted {fp.Value}")),
                 LanguageExt.Option<Action<Exception>>.Some((e) => PrintException(e)),
-                LanguageExt.Option<Func<NotifyFilters>>.Some(() => NotifyFilters.FileName ),
+                LanguageExt.Option<Func<NotifyFilters>>.Some(() => NotifyFilters.FileName),
                 LanguageExt.Option<Func<string>>.Some(() => "*.JPG"),
                 true,
                 cts.Token);
 
-            //var statusObservable = Processor.RunAsync(opts, cts.Token);
-
-            //using var _ = statusObservable.Subscribe(workingState =>
-            //{
-            //    var msg = workingState.Match(
-            //        Some: state => $"{state.CurrentCount}/{state.TaskCount}",
-            //        None: () => "Waiting...");
-
-            //    do { Console.Write("\b \b"); } while (Console.CursorLeft > 0);
-            //    Console.Write(msg);
-            //});
-
-            //await statusObservable.LastOrDefaultAsync();
+            await Task.WhenAll(t1,t2);
         }
 
         private static void PrintException(Exception? ex)

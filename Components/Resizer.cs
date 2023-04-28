@@ -2,6 +2,8 @@
 {
     using System.Threading.Tasks;
 
+    using ImageResizer.Types;
+
     using SixLabors.ImageSharp;
     using SixLabors.ImageSharp.Processing;
 

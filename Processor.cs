@@ -17,69 +17,55 @@
 
     public static class Processor
     {
-        /// <summary>
-        /// Run the processor loop indefinitely.
-        /// </summary>
-        /// <returns>Observable of optional working state information.
-        /// Missing values indicate that there is currently no work to do.</returns>
-        public static IObservable<Option<WorkingStateInfo>> RunAsync(
-            Options options,
-            CancellationToken cancellationToken = default)
-            => Observable.Defer(() => ProcessDirectory(options, cancellationToken))
-                .Select(Some)
-                .Append(None)
-                .Concat(Wait<Option<WorkingStateInfo>>(
-                    options.CheckDelay.ToTimeSpan(),
-                    cancellationToken))
-                .Repeat()
-                .OnErrorResumeNext(Observable.Empty<Option<WorkingStateInfo>>())
-                .Replay(1)
-                .AutoConnect(0);
 
-        /// <summary>
-        /// Creates an observable sequence that emits no elements and
-        /// completes after the given duration.
-        /// If cancellation is requested the sequence immediately
-        /// emits an error.
-        /// </summary>
-        private static IObservable<T> Wait<T>(
-            TimeSpan duration,
+        public static Task Process(
+            Queue<TaskItem> workload,
+            Options opts,
+            Mutex mutex,
             CancellationToken cancellationToken)
-            => Observable
-                .Never<T>()
-                .ToTask(cancellationToken)
-                .ToObservable()
-                .TakeUntil(Observable.Timer(duration));
-
-        /// <summary>
-        /// Process all files in the source directory concurrently.
-        /// </summary>
-        /// <returns>Sequence of processed files/state info.</returns>
-        private static IObservable<WorkingStateInfo> ProcessDirectory(
-            Options options,
-            CancellationToken cancellationToken)
+            => Task.Run(() =>
         {
-            var taskItems = CheckForImageFiles(options.SourceDirectory);
-            int taskItemsCount = taskItems.Count();
-
-            return taskItems
-                .Select(item => Observable.Defer(() =>
-                    cancellationToken.IsCancellationRequested ?
-                        Observable.Empty<TaskItem>() :
-                        Observable.FromAsync(() => ProcessAsync(item, options))))
-                .Merge(options.MaxConcurrent)
-                .Scan(
-                    new WorkingStateInfo(taskItemsCount, taskItemsCount),
-                    (ws, _) => ws with { CurrentCount = ws.CurrentCount - 1 })
-                .StartWith(new WorkingStateInfo(taskItemsCount, taskItemsCount));
-        }
+            ThreadPool.SetMaxThreads(opts.MaxConcurrent, opts.MaxConcurrent);
+            do
+            {
+                Console.WriteLine("Run");
+                if (workload.Any() && ThreadPool.PendingWorkItemCount == 0)
+                {
+                    if (mutex.WaitOne((int)opts.CheckDelay.Milliseconds))
+                    {
+                        Console.WriteLine("Got mutex");
+                        foreach (int i in Range(0, opts.MaxConcurrent))
+                        {
+                            if (workload.Any())
+                            {
+                                ThreadPool.QueueUserWorkItem(
+                                    async (p) => await ProcessAsync(p.item, p.opts),
+                                    (item: workload.Dequeue(), opts),
+                                    false);
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                        mutex.ReleaseMutex();
+                        Console.WriteLine("Released mutex");
+                    }
+                }
+                else
+                {
+                    Thread.Sleep((int)opts.CheckDelay.Milliseconds);
+                }
+            }
+            while (cancellationToken.IsCancellationRequested == false);
+        }, cancellationToken);
 
         /// <summary>
         /// Find all image files in the given directory.
         /// </summary>
         /// <param name="directory">Absolute directory path.</param>
         /// <returns>List of task items.</returns>
-        private static IEnumerable<TaskItem> CheckForImageFiles(string directory)
+        public static IEnumerable<TaskItem> CheckForImageFiles(string directory)
             => new DirectoryInfo(directory)
                 .GetFiles()
                 .Where(f => f.Extension.Contains("jpg", StringComparison.InvariantCultureIgnoreCase))
@@ -93,15 +79,10 @@
         {
             string original = Path.Combine(options.DestinationDirectory, Path.GetFileName(item.Value));
 
-            if(Mover.Move(FilePath.Create(item.Value), DirectoryPath.Create(options.DestinationDirectory)))
+            if (Mover.Move(TaskItem.Create(item.Value), DirectoryPath.Create(options.DestinationDirectory)))
             {
-                // todo Check if file exists. If so, add increased prefix and check again
-                //File.Move(item.Value, original);
-
-                // TO TEST!
-
                 var img = await Resizer.ResizeAsync(
-                    new TaskItem(original),
+                    TaskItem.Create(original),
                     options.Width,
                     options.Height,
                     options.KeepAspectRatio);
@@ -115,12 +96,5 @@
 
             return item;
         }
-
-        /// <summary>
-        /// Working state information.
-        /// </summary>
-        /// <param name="TaskCount">Get total workload.</param>
-        /// <param name="CurrentCount">Get current workload.</param>
-        public record WorkingStateInfo(int TaskCount, int CurrentCount);
     }
 }

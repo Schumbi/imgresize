@@ -2,9 +2,9 @@
 {
     using LanguageExt;
 
-    public class FilePath : NewType<FilePath, string>
+    public class TaskItem : NewType<TaskItem, string>
     {
-        public FilePath(string value) : base(value)
+        public TaskItem(string value) : base(value)
         {
         }
 
@@ -72,7 +72,7 @@
         /// <param name="name">File name without extension.</param>
         /// <param name="ext">Extension starting with ".".</param>
         /// <returns></returns>
-        public static Option<FilePath> Combine(DirectoryPath directory, string name, string ext)
+        public static Option<TaskItem> Combine(DirectoryPath directory, string name, string ext)
         {
             if (directory.DirectoryExists &&
                 !string.IsNullOrWhiteSpace(name) &&
@@ -81,23 +81,23 @@
                 ext.Length > 1)
             {
 
-                return new FilePath(Path.TrimEndingDirectorySeparator(directory.Value) + Path.DirectorySeparatorChar + name + ext);
+                return new TaskItem(Path.TrimEndingDirectorySeparator(directory.Value) + Path.DirectorySeparatorChar + name + ext);
             }
 
-            return Option<FilePath>.None;
+            return Option<TaskItem>.None;
         }
 
         /// <summary>
         /// A default empty file path.
         /// </summary>
         /// <returns>empty.</returns>
-        public static FilePath Empty() => new(string.Empty);
+        public static TaskItem Empty() => new(string.Empty);
 
         /// <summary>
         /// Create a File Path.
         /// </summary>
         /// <param name="path">Path to use.</param>
         /// <returns>Filepath.</returns>
-        public static FilePath Create(string path) => new(path);
+        public static TaskItem Create(string path) => new(path);
     }
 }

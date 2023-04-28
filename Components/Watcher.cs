@@ -12,8 +12,8 @@
     {
         public static Task RunWatcher(
             DirectoryInfo watchedDir,
-            Option<Action<FilePath>> created,
-            Option<Action<FilePath>> deleted,
+            Option<Action<TaskItem>> created,
+            Option<Action<TaskItem>> deleted,
             Option<Action<Exception>> errorHandler,
             Option<Func<NotifyFilters>> notifyFilters,
             Option<Func<string>> fileFilter,
@@ -28,14 +28,14 @@
                  created.IfSome(f => watcher.Created += (object sender, FileSystemEventArgs e) =>
                     {
                         Console.WriteLine($"{e.ChangeType}");
-                        f.Invoke(FilePath.Create(e.FullPath));
+                        f.Invoke(TaskItem.Create(e.FullPath));
                         e.FullPath.PrintFileInfo(Console.WriteLine);
                     });
 
                  deleted.IfSome(f => watcher.Deleted += (object sender, FileSystemEventArgs e) =>
                  {
                     Console.WriteLine($"{e.ChangeType}");
-                     f.Invoke(FilePath.Create(e.FullPath));
+                     f.Invoke(TaskItem.Create(e.FullPath));
                  });
 
                  errorHandler.IfSome(f => watcher.Error += (object sender, ErrorEventArgs e) => f.Invoke(e.GetException()));
